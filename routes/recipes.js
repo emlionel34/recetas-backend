@@ -7,7 +7,8 @@ const {
     obtenerReceta,
     crearReceta,
     actualizarReceta,
-    eliminarReceta
+    eliminarReceta,
+    aprobarReceta
 } = require('../controllers/recipeController');
 
 const { verificarToken, verificarRol } = require('../middleware/auth');
@@ -19,6 +20,9 @@ router.get('/:id', obtenerReceta);
 router.post('/', verificarToken, verificarRol(2, 3), crearReceta);
 
 router.put('/:id', verificarToken, verificarRol(2, 3), actualizarReceta);
+
+// Solo el administrador (rol 3) puede aprobar recetas pendientes
+router.put('/:id/aprobar', verificarToken, verificarRol(3), aprobarReceta);
 
 router.delete('/:id', verificarToken, verificarRol(2, 3), eliminarReceta);
 
