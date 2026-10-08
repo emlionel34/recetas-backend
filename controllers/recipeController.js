@@ -67,10 +67,8 @@ const crearReceta = async (req, res) => {
     }
 };
 
-const listarRecetas = async (req, res) => 
-{
-    try 
-    {
+const listarRecetas = async (req, res) => {
+    try {
         let resultado;
 
         if (req.usuario.id_rol === 3) {
@@ -89,9 +87,7 @@ const listarRecetas = async (req, res) =>
         }
 
         res.json(resultado.rows);
-    } 
-    catch (error) 
-    {
+    } catch (error) {
         console.log(error);
         res.status(500).json({
             mensaje: 'Error al obtener las recetas'
