@@ -9,6 +9,7 @@ const crearReceta = async (req, res) => {
     try {
         let { nombre, descripcion, ingredientes, imagen } = req.body;
         const id_usuario = req.usuario.id_usuario;
+        const id_rol = req.usuario.id_rol;
 
         // Valida campos obligatorios
         if (!nombre || !descripcion) {
@@ -45,10 +46,11 @@ const crearReceta = async (req, res) => {
         }
 
         const resultado = await pool.query(
-            `INSERT INTO recetas (nombre, descripcion, ingredientes, imagen, id_usuario)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO recetas (nombre, descripcion, ingredientes, imagen, id_usuario, aprobada)
+             VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING *`,
-            [nombre, descripcion, ingredientes || null, imagen || null, id_usuario]
+            // Las recetas del administrador salen aprobadas; las del cocinero quedan pendientes
+            [nombre, descripcion, ingredientes || null, imagen || null, id_usuario, id_rol === 3]
         );
 
         res.status(201).json({
@@ -69,9 +71,22 @@ const listarRecetas = async (req, res) =>
 {
     try 
     {
-        const resultado = await pool.query(
-            'SELECT * FROM recetas ORDER BY id_receta DESC'
-        );
+        let resultado;
+
+        if (req.usuario.id_rol === 3) {
+            // Administrador: ve todas, también las pendientes
+            resultado = await pool.query(
+                'SELECT * FROM recetas ORDER BY id_receta DESC'
+            );
+        } else {
+            // Los demás ven las aprobadas y las que crearon ellos
+            resultado = await pool.query(
+                `SELECT * FROM recetas
+                 WHERE aprobada = TRUE OR id_usuario = $1
+                 ORDER BY id_receta DESC`,
+                [req.usuario.id_usuario]
+            );
+        }
 
         res.json(resultado.rows);
     } 
@@ -87,7 +102,7 @@ const listarRecetas = async (req, res) =>
 const obtenerReceta = async (req, res) => {
     try {
         const resultado = await pool.query(
-            'SELECT * FROM recetas WHERE id_receta = $1',
+            'SELECT * FROM recetas WHERE id_receta = $1 AND aprobada = TRUE',
             [req.params.id]
         );
 
@@ -236,7 +251,47 @@ const eliminarReceta = async (req, res) => {
     }
 };
 
+// Aprueba una receta pendiente (solo administrador, lo controla la ruta)
+const aprobarReceta = async (req, res) => {
+    try {
+        const id_receta = Number(req.params.id);
+
+        if (!Number.isInteger(id_receta)) {
+            return res.status(400).json({
+                error: 'El id de la receta no es válido'
+            });
+        }
+
+        const resultado = await pool.query(
+            `UPDATE recetas
+             SET aprobada = TRUE
+             WHERE id_receta = $1
+             RETURNING *`,
+            [id_receta]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Receta no encontrada'
+            });
+        }
+
+        res.json({
+            mensaje: 'Receta aprobada correctamente',
+            receta: resultado.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            error: 'Error al aprobar la receta'
+        });
+    }
+};
+
 module.exports = {
+    aprobarReceta,
     listarRecetas,
     obtenerReceta,
     crearReceta,
