@@ -7,7 +7,7 @@ const imagenValida = (imagen) => {
 
 const crearReceta = async (req, res) => {
     try {
-        let { nombre, descripcion, imagen } = req.body;
+        let { nombre, descripcion, ingredientes, imagen } = req.body;
         const id_usuario = req.usuario.id_usuario;
 
         // Valida campos obligatorios
@@ -20,6 +20,7 @@ const crearReceta = async (req, res) => {
         // Limpia espacios
         nombre = nombre.trim();
         descripcion = descripcion.trim();
+        ingredientes = ingredientes ? ingredientes.trim() : '';
         imagen = imagen ? imagen.trim() : '';
 
         // Valida que no estén vacíos
@@ -44,10 +45,10 @@ const crearReceta = async (req, res) => {
         }
 
         const resultado = await pool.query(
-            `INSERT INTO recetas (nombre, descripcion, imagen, id_usuario)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO recetas (nombre, descripcion, ingredientes, imagen, id_usuario)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING *`,
-            [nombre, descripcion, imagen || null, id_usuario]
+            [nombre, descripcion, ingredientes || null, imagen || null, id_usuario]
         );
 
         res.status(201).json({
@@ -107,7 +108,7 @@ const obtenerReceta = async (req, res) => {
 
 const actualizarReceta = async (req, res) => {
     try {
-        let { nombre, descripcion, imagen } = req.body;
+        let { nombre, descripcion, ingredientes, imagen } = req.body;
         const id_receta = req.params.id;
         const id_usuario = req.usuario.id_usuario;
         const id_rol = req.usuario.id_rol;
@@ -122,6 +123,7 @@ const actualizarReceta = async (req, res) => {
         // Limpiar espacios
         nombre = nombre.trim();
         descripcion = descripcion.trim();
+        ingredientes = ingredientes ? ingredientes.trim() : '';
         imagen = imagen ? imagen.trim() : '';
 
         // Validar que no estén vacíos
@@ -151,20 +153,20 @@ const actualizarReceta = async (req, res) => {
             // Administrador: puede editar cualquier receta
             resultado = await pool.query(
                 `UPDATE recetas
-                 SET nombre = $1, descripcion = $2, imagen = $3
-                 WHERE id_receta = $4
+                 SET nombre = $1, descripcion = $2, ingredientes = $3, imagen = $4
+                 WHERE id_receta = $5
                  RETURNING *`,
-                [nombre, descripcion, imagen || null, id_receta]
+                [nombre, descripcion, ingredientes || null, imagen || null, id_receta]
             );
         } else {
             // Cocinero: solo puede editar sus propias recetas
             resultado = await pool.query(
                 `UPDATE recetas
-                 SET nombre = $1, descripcion = $2, imagen = $3
-                 WHERE id_receta = $4
-                 AND id_usuario = $5
+                 SET nombre = $1, descripcion = $2, ingredientes = $3, imagen = $4
+                 WHERE id_receta = $5
+                 AND id_usuario = $6
                  RETURNING *`,
-                [nombre, descripcion, imagen || null, id_receta, id_usuario]
+                [nombre, descripcion, ingredientes || null, imagen || null, id_receta, id_usuario]
             );
         }
 
