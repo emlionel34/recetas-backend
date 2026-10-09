@@ -3,6 +3,7 @@ const recipeRoutes = require('./routes/recipes');
 const authRoutes = require('./routes/auth'); 
 const favoriteRoutes = require('./routes/favorites');
 const userRoutes = require('./routes/users');
+const oauthRoutes = require('./routes/oauth');
  
 const app = express(); 
 
@@ -13,7 +14,8 @@ const PORT = process.env.PORT || 4000;
 app.use(express.json()); 
 
 app.use('/api/recipes', recipeRoutes); 
-app.use('/api/auth', authRoutes); 
+app.use('/api/auth', authRoutes);
+app.use('/api/auth', oauthRoutes); 
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/users', userRoutes);
  
