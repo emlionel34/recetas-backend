@@ -5,44 +5,56 @@ const imagenValida = (imagen) => {
     return !imagen || /^https?:\/\//i.test(imagen);
 };
 
+// Limpia y valida los datos de una receta (se usa al crear y al actualizar).
+// Devuelve { error } si hay un problema, o { datos } con los valores ya limpios.
+const validarReceta = (cuerpo) => {
+    let { nombre, descripcion, ingredientes, imagen } = cuerpo;
+
+    // Campos obligatorios
+    if (!nombre || !descripcion) {
+        return { error: 'El nombre y la descripción son obligatorios' };
+    }
+
+    // Limpia espacios
+    nombre = nombre.trim();
+    descripcion = descripcion.trim();
+    ingredientes = ingredientes ? ingredientes.trim() : '';
+    imagen = imagen ? imagen.trim() : '';
+
+    // Que no estén vacíos
+    if (!nombre || !descripcion) {
+        return { error: 'El nombre y la descripción no pueden estar vacíos' };
+    }
+
+    // Longitud del nombre
+    if (nombre.length < 3) {
+        return { error: 'El nombre de la receta debe tener al menos 3 caracteres' };
+    }
+
+    // Enlace de la imagen (si lo hay)
+    if (!imagenValida(imagen)) {
+        return { error: 'La imagen debe ser un enlace que empiece con http o https' };
+    }
+
+    return {
+        datos: {
+            nombre,
+            descripcion,
+            ingredientes: ingredientes || null,
+            imagen: imagen || null
+        }
+    };
+};
+
 const crearReceta = async (req, res) => {
     try {
-        let { nombre, descripcion, ingredientes, imagen } = req.body;
         const id_usuario = req.usuario.id_usuario;
         const id_rol = req.usuario.id_rol;
 
-        // Valida campos obligatorios
-        if (!nombre || !descripcion) {
-            return res.status(400).json({
-                error: 'El nombre y la descripción son obligatorios'
-            });
-        }
+        const { error: errorValidacion, datos } = validarReceta(req.body);
 
-        // Limpia espacios
-        nombre = nombre.trim();
-        descripcion = descripcion.trim();
-        ingredientes = ingredientes ? ingredientes.trim() : '';
-        imagen = imagen ? imagen.trim() : '';
-
-        // Valida que no estén vacíos
-        if (!nombre || !descripcion) {
-            return res.status(400).json({
-                error: 'El nombre y la descripción no pueden estar vacíos'
-            });
-        }
-
-        // Valida longitud del nombre
-        if (nombre.length < 3) {
-            return res.status(400).json({
-                error: 'El nombre de la receta debe tener al menos 3 caracteres'
-            });
-        }
-
-        // Valida el enlace de la imagen (si lo hay)
-        if (!imagenValida(imagen)) {
-            return res.status(400).json({
-                error: 'La imagen debe ser un enlace que empiece con http o https'
-            });
+        if (errorValidacion) {
+            return res.status(400).json({ error: errorValidacion });
         }
 
         const resultado = await pool.query(
@@ -50,7 +62,7 @@ const crearReceta = async (req, res) => {
              VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING *`,
             // Las recetas del administrador salen aprobadas; las del cocinero quedan pendientes
-            [nombre, descripcion, ingredientes || null, imagen || null, id_usuario, id_rol === 3]
+            [datos.nombre, datos.descripcion, datos.ingredientes, datos.imagen, id_usuario, id_rol === 3]
         );
 
         res.status(201).json({
@@ -90,7 +102,7 @@ const listarRecetas = async (req, res) => {
     } catch (error) {
         console.log(error);
         res.status(500).json({
-            mensaje: 'Error al obtener las recetas'
+            error: 'Error al obtener las recetas'
         });
     }
 };
@@ -119,43 +131,14 @@ const obtenerReceta = async (req, res) => {
 
 const actualizarReceta = async (req, res) => {
     try {
-        let { nombre, descripcion, ingredientes, imagen } = req.body;
         const id_receta = req.params.id;
         const id_usuario = req.usuario.id_usuario;
         const id_rol = req.usuario.id_rol;
 
-        // Validar campos obligatorios
-        if (!nombre || !descripcion) {
-            return res.status(400).json({
-                error: 'El nombre y la descripción son obligatorios'
-            });
-        }
+        const { error: errorValidacion, datos } = validarReceta(req.body);
 
-        // Limpiar espacios
-        nombre = nombre.trim();
-        descripcion = descripcion.trim();
-        ingredientes = ingredientes ? ingredientes.trim() : '';
-        imagen = imagen ? imagen.trim() : '';
-
-        // Validar que no estén vacíos
-        if (!nombre || !descripcion) {
-            return res.status(400).json({
-                error: 'El nombre y la descripción no pueden estar vacíos'
-            });
-        }
-
-        // Validar longitud del nombre
-        if (nombre.length < 3) {
-            return res.status(400).json({
-                error: 'El nombre de la receta debe tener al menos 3 caracteres'
-            });
-        }
-
-        // Validar el enlace de la imagen (si lo hay)
-        if (!imagenValida(imagen)) {
-            return res.status(400).json({
-                error: 'La imagen debe ser un enlace que empiece con http o https'
-            });
+        if (errorValidacion) {
+            return res.status(400).json({ error: errorValidacion });
         }
 
         let resultado;
@@ -167,7 +150,7 @@ const actualizarReceta = async (req, res) => {
                  SET nombre = $1, descripcion = $2, ingredientes = $3, imagen = $4
                  WHERE id_receta = $5
                  RETURNING *`,
-                [nombre, descripcion, ingredientes || null, imagen || null, id_receta]
+                [datos.nombre, datos.descripcion, datos.ingredientes, datos.imagen, id_receta]
             );
         } else {
             // Cocinero: solo puede editar sus propias recetas
@@ -177,7 +160,7 @@ const actualizarReceta = async (req, res) => {
                  WHERE id_receta = $5
                  AND id_usuario = $6
                  RETURNING *`,
-                [nombre, descripcion, ingredientes || null, imagen || null, id_receta, id_usuario]
+                [datos.nombre, datos.descripcion, datos.ingredientes, datos.imagen, id_receta, id_usuario]
             );
         }
 
